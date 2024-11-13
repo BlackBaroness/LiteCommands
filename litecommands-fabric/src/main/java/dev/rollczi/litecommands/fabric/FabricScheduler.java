@@ -4,7 +4,6 @@ import dev.rollczi.litecommands.scheduler.Scheduler;
 import dev.rollczi.litecommands.scheduler.SchedulerExecutorPoolImpl;
 import dev.rollczi.litecommands.scheduler.SchedulerPoll;
 import dev.rollczi.litecommands.shared.ThrowingSupplier;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.util.thread.ReentrantThreadExecutor;
 import org.jetbrains.annotations.NotNull;
 
@@ -64,9 +63,9 @@ public abstract class FabricScheduler<R extends Runnable> implements Scheduler {
                 tryRun(supplier, future);
             }, delay.toMillis(), TimeUnit.MILLISECONDS);
         } else if (delay.isZero()) {
-            MinecraftClient.getInstance().execute(() -> tryRun(supplier, future));
+            getExecutor().execute(() -> tryRun(supplier, future));
         } else {
-            MinecraftClient.getInstance().execute(new LaterTask<>(delay, supplier, future));
+            getExecutor().execute(new LaterTask<>(delay, supplier, future));
         }
     }
 
@@ -81,18 +80,16 @@ public abstract class FabricScheduler<R extends Runnable> implements Scheduler {
         private final ThrowingSupplier<T, @NotNull Throwable> supplier;
         private final CompletableFuture<T> future;
 
-        private int tick;
-        private final int end;
+        private final long end;
 
         private LaterTask(Duration delay, ThrowingSupplier<T, @NotNull Throwable> supplier, CompletableFuture<T> future) {
             this.supplier = supplier;
             this.future = future;
-            end = Math.toIntExact(delay.toMillis() / 50);
+            end = System.currentTimeMillis() + delay.toMillis();
         }
 
         @Override
         public void run() {
-            ++tick;
             if (!hasNext()) {
                 tryRun(supplier, future);
                 return;
@@ -101,7 +98,7 @@ public abstract class FabricScheduler<R extends Runnable> implements Scheduler {
         }
 
         boolean hasNext() {
-            return end >= tick;
+            return end > System.currentTimeMillis();
         }
     }
 }
