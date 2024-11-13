@@ -4,13 +4,13 @@ import dev.rollczi.litecommands.LiteCommandsBuilder;
 import dev.rollczi.litecommands.LiteCommandsFactory;
 import dev.rollczi.litecommands.fabric.client.FabricClientPlatform;
 import dev.rollczi.litecommands.fabric.client.argument.ClientPlayerArgument;
+import dev.rollczi.litecommands.fabric.context.FabricOnlyPlayerContext;
 import dev.rollczi.litecommands.fabric.server.FabricServerPlatform;
+import dev.rollczi.litecommands.fabric.server.FabricServerScheduler;
 import dev.rollczi.litecommands.fabric.server.argument.PlayerArgument;
 import dev.rollczi.litecommands.fabric.server.argument.WorldArgument;
-import dev.rollczi.litecommands.fabric.context.FabricOnlyPlayerContext;
 import dev.rollczi.litecommands.message.MessageRegistry;
 import dev.rollczi.litecommands.platform.PlatformSettings;
-import static dev.rollczi.litecommands.reflect.type.TypeRange.upwards;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
@@ -20,6 +20,8 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.world.World;
+
+import static dev.rollczi.litecommands.reflect.type.TypeRange.upwards;
 
 public final class LiteFabricFactory {
 
@@ -71,6 +73,7 @@ public final class LiteFabricFactory {
                 builder
                     .advanced()
                     .context(ClientPlayerEntity.class, new FabricOnlyPlayerContext<>(source -> source.getPlayer(), messages))
+                    .scheduler(new FabricServerScheduler())
 
                     .argument(upwards(PlayerEntity.class), new ClientPlayerArgument<>(messages))
 
