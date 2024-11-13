@@ -10,9 +10,11 @@ import org.jetbrains.annotations.NotNull;
 
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 public class FabricServerScheduler extends FabricScheduler {
@@ -20,11 +22,23 @@ public class FabricServerScheduler extends FabricScheduler {
     private final ScheduledExecutorService asyncExecutor;
 
     public FabricServerScheduler() {
+        this(-1);
+    }
+
+    public FabricServerScheduler(int pool) {
         super(new ServerGetter());
-        ScheduledThreadPoolExecutor asyncExecutor = new ScheduledThreadPoolExecutor(4);
-        asyncExecutor.setKeepAliveTime(3, TimeUnit.MINUTES);
-        asyncExecutor.setMaximumPoolSize(Runtime.getRuntime().availableProcessors() * 2);
-        this.asyncExecutor = asyncExecutor;
+        AtomicInteger asyncCount = new AtomicInteger();
+        ThreadFactory factory = runnable -> {
+            Thread thread = new Thread(runnable);
+            thread.setName(String.format("scheduler-litecommands-fabric-async-%d", asyncCount.getAndIncrement()));
+
+            return thread;
+        };
+
+        this.asyncExecutor = Executors.newScheduledThreadPool(
+            Math.max(pool, Runtime.getRuntime().availableProcessors()) / 2,
+            factory
+        );
     }
 
     @Override

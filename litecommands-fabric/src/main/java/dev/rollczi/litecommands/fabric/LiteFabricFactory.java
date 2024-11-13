@@ -53,6 +53,7 @@ public final class LiteFabricFactory {
                 builder
                     .advanced()
                     .context(ServerPlayerEntity.class, new FabricOnlyPlayerContext<>(source -> source.getPlayer(), messages))
+                    .scheduler(new FabricServerScheduler())
 
                     .argument(upwards(PlayerEntity.class), new PlayerArgument<>(messages))
                     .argument(upwards(World.class), new WorldArgument<>(messages))
@@ -73,7 +74,6 @@ public final class LiteFabricFactory {
                 builder
                     .advanced()
                     .context(ClientPlayerEntity.class, new FabricOnlyPlayerContext<>(source -> source.getPlayer(), messages))
-                    .scheduler(new FabricServerScheduler())
 
                     .argument(upwards(PlayerEntity.class), new ClientPlayerArgument<>(messages))
 
