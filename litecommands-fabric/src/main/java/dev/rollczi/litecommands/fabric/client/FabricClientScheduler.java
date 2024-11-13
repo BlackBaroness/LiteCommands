@@ -5,8 +5,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.util.thread.ReentrantThreadExecutor;
 
 public class FabricClientScheduler extends FabricScheduler<Runnable> {
-
-
     public FabricClientScheduler() {
         this(-1);
     }

@@ -18,10 +18,17 @@ import java.util.function.Supplier;
 
 public abstract class FabricScheduler<R extends Runnable> implements Scheduler {
     private final Supplier<Boolean> isMainThread;
+
+    private final ScheduledExecutorService mainExecutor;
     private final ScheduledExecutorService asyncExecutor;
 
     public FabricScheduler(Supplier<Boolean> isMainThread, int pool) {
         this.isMainThread = isMainThread;
+        this.mainExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable);
+            thread.setName("scheduler-litecommands-fabric-main");
+            return thread;
+        });
         AtomicInteger asyncCount = new AtomicInteger();
         ThreadFactory factory = runnable -> {
             Thread thread = new Thread(runnable);
@@ -94,7 +101,10 @@ public abstract class FabricScheduler<R extends Runnable> implements Scheduler {
                 tryRun(supplier, future);
                 return;
             }
-            getExecutor().send(getExecutor().createTask(this));
+            // Submit to the main thread
+            mainExecutor.submit(() -> {
+                getExecutor().submit(this);
+            });
         }
 
         boolean hasNext() {
