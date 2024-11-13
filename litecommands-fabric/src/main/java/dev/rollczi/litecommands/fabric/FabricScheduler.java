@@ -1,19 +1,40 @@
 package dev.rollczi.litecommands.fabric;
 
 import dev.rollczi.litecommands.scheduler.Scheduler;
+import dev.rollczi.litecommands.scheduler.SchedulerExecutorPoolImpl;
 import dev.rollczi.litecommands.scheduler.SchedulerPoll;
 import dev.rollczi.litecommands.shared.ThrowingSupplier;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.util.thread.ReentrantThreadExecutor;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-public abstract class FabricScheduler implements Scheduler {
+public abstract class FabricScheduler<R extends Runnable> implements Scheduler {
     private final Supplier<Boolean> isMainThread;
+    private final ScheduledExecutorService asyncExecutor;
 
-    public FabricScheduler(Supplier<Boolean> isMainThread) {
+    public FabricScheduler(Supplier<Boolean> isMainThread, int pool) {
         this.isMainThread = isMainThread;
+        AtomicInteger asyncCount = new AtomicInteger();
+        ThreadFactory factory = runnable -> {
+            Thread thread = new Thread(runnable);
+            thread.setName(String.format("scheduler-litecommands-fabric-async-%d", asyncCount.getAndIncrement()));
+
+            return thread;
+        };
+
+        this.asyncExecutor = Executors.newScheduledThreadPool(
+            Math.max(pool, Runtime.getRuntime().availableProcessors()) / 2,
+            factory
+        );
     }
 
     @Override
@@ -37,10 +58,50 @@ public abstract class FabricScheduler implements Scheduler {
         return future;
     }
 
-    public abstract <T> void submit(SchedulerPoll type, Duration delay, ThrowingSupplier<T, @NotNull Throwable> supplier, CompletableFuture<T> future);
+    public <T> void submit(SchedulerPoll type, Duration delay, ThrowingSupplier<T, @NotNull Throwable> supplier, CompletableFuture<T> future) {
+        if (type.equals(SchedulerPoll.ASYNCHRONOUS)) {
+            asyncExecutor.schedule(() -> {
+                tryRun(supplier, future);
+            }, delay.toMillis(), TimeUnit.MILLISECONDS);
+        } else if (delay.isZero()) {
+            MinecraftClient.getInstance().execute(() -> tryRun(supplier, future));
+        } else {
+            MinecraftClient.getInstance().execute(new LaterTask<>(delay, supplier, future));
+        }
+    }
 
     @Override
     public void shutdown() {
+        SchedulerExecutorPoolImpl.close(asyncExecutor);
+    }
 
+    public abstract ReentrantThreadExecutor<R> getExecutor();
+
+    private class LaterTask<T> implements Runnable {
+        private final ThrowingSupplier<T, @NotNull Throwable> supplier;
+        private final CompletableFuture<T> future;
+
+        private int tick;
+        private final int end;
+
+        private LaterTask(Duration delay, ThrowingSupplier<T, @NotNull Throwable> supplier, CompletableFuture<T> future) {
+            this.supplier = supplier;
+            this.future = future;
+            end = Math.toIntExact(delay.toMillis() / 50);
+        }
+
+        @Override
+        public void run() {
+            ++tick;
+            if (!hasNext()) {
+                tryRun(supplier, future);
+                return;
+            }
+            getExecutor().send(getExecutor().createTask(this));
+        }
+
+        boolean hasNext() {
+            return end >= tick;
+        }
     }
 }

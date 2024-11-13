@@ -3,6 +3,7 @@ package dev.rollczi.litecommands.fabric;
 import dev.rollczi.litecommands.LiteCommandsBuilder;
 import dev.rollczi.litecommands.LiteCommandsFactory;
 import dev.rollczi.litecommands.fabric.client.FabricClientPlatform;
+import dev.rollczi.litecommands.fabric.client.FabricClientScheduler;
 import dev.rollczi.litecommands.fabric.client.argument.ClientPlayerArgument;
 import dev.rollczi.litecommands.fabric.context.FabricOnlyPlayerContext;
 import dev.rollczi.litecommands.fabric.server.FabricServerPlatform;
@@ -76,6 +77,7 @@ public final class LiteFabricFactory {
                     .context(ClientPlayerEntity.class, new FabricOnlyPlayerContext<>(source -> source.getPlayer(), messages))
 
                     .argument(upwards(PlayerEntity.class), new ClientPlayerArgument<>(messages))
+                    .scheduler(new FabricClientScheduler())
 
                     .result(String.class, (invocation, text, chain) -> invocation.sender().sendFeedback(Text.of(text)))
                     .result(Text.class, (invocation, text, chain) -> invocation.sender().sendFeedback(text))
